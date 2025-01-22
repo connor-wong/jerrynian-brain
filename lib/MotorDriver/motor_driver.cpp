@@ -1,9 +1,5 @@
 #include <motor_driver.h>
 
-/* Variables */
-int leftPwm = 255;
-int rightPwm = 255;
-
 void motor_setup(void)
 {
     pinMode(MOTOR_EN, OUTPUT);

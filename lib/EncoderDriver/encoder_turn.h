@@ -11,6 +11,8 @@
 #define R_ENCODER_B 34
 
 /* Variables */
+extern volatile float lastWallError;
+extern volatile float wallIntegral;
 extern volatile int leftEncoderValue;
 extern volatile int rightEncoderValue;
 

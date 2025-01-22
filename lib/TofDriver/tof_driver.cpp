@@ -9,7 +9,7 @@ const uint8_t TOF_SENSOR_ADDRESSES[4] = {tofAddress1, tofAddress2, tofAddress4, 
 
 void tof_setup(void)
 {
-    Wire.setClock(400000); // Set to 400 kHz
+    Wire.setClock(100000); // Set to 400 kHz
     Wire.begin(SDA_PIN, SCL_PIN);
 
     // Reset and initialize sensors

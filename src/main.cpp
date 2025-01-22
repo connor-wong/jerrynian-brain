@@ -9,7 +9,7 @@
 #include <motor_driver.h>
 #include <motor_function.h>
 #include <encoder_driver.h>
-// #include <encoder_turn.h>
+#include <encoder_turn.h>
 
 /* Algorithm */
 #include <wall_follower.h>
@@ -47,7 +47,8 @@ void start_command(void)
   while (!commandManager.should_stop())
   {
     wait_for_command();
-    wall_follower();
+    flood_fill();
+    // wall_follower();
   }
 }
 
@@ -58,6 +59,26 @@ void debug_command(void)
     wait_for_command();
     tof_read(true);
   }
+}
+
+void test_command(void)
+{
+  leftEncoderValue = 0;
+  rightEncoderValue = 0;
+
+  enable_motor();
+  forward_wall_pid(0);
+
+  while (leftEncoderValue < 2100 && rightEncoderValue < 2100)
+  {
+    ;
+  }
+
+  TelnetStream.println("Cell Detected");
+  brake();
+  disable_motor();
+
+  TelnetStream.println("leftEncoderValue: " + String(leftEncoderValue) + " rightEncoderValue: " + String(rightEncoderValue));
 }
 
 void setup()
@@ -80,6 +101,7 @@ void setup()
   // commandManager.add_command("LEFT", encoder_turn_left);
   // commandManager.add_command("RIGHT", encoder_turn_right);
   commandManager.add_command("CALI", calibrate_tof_front_threshold);
+  // commandManager.add_command("TEST", test_command);
 }
 
 void loop()

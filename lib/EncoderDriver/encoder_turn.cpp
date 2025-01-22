@@ -4,8 +4,8 @@
 #include <motor_driver.h>
 
 const long pulsesForForward = 2300;
-const long pulsesForReverse = 300;
-const long pulsesFor180DegreeTurn = 1970;
+const long pulsesForReverse = 550;
+const long pulsesFor180DegreeTurn = 1950;
 const long pulsesFor90DegreeTurn = 890;
 const long pulsesFor45DegreeTurn = 445;
 
@@ -25,6 +25,10 @@ void encoder_forward(void)
     }
 
     brake();
+    write_pwm(0, 0);
+
+    leftEncoderValue = 0;
+    rightEncoderValue = 0;
 }
 
 void encoder_reverse(void)
@@ -43,6 +47,10 @@ void encoder_reverse(void)
     }
 
     brake();
+    write_pwm(0, 0);
+
+    leftEncoderValue = 0;
+    rightEncoderValue = 0;
 }
 
 void encoder_turn_back(void)
@@ -61,6 +69,12 @@ void encoder_turn_back(void)
     }
 
     brake();
+    write_pwm(0, 0);
+
+    lastWallError = 0;
+    wallIntegral = 0;
+    leftEncoderValue = 0;
+    rightEncoderValue = 0;
 }
 
 void encoder_turn_right(void)
@@ -79,6 +93,12 @@ void encoder_turn_right(void)
     }
 
     brake();
+    write_pwm(0, 0);
+
+    lastWallError = 0;
+    wallIntegral = 0;
+    leftEncoderValue = 0;
+    rightEncoderValue = 0;
 }
 
 void encoder_turn_left(void)
@@ -97,4 +117,10 @@ void encoder_turn_left(void)
     }
 
     brake();
+    write_pwm(0, 0);
+
+    lastWallError = 0;
+    wallIntegral = 0;
+    leftEncoderValue = 0;
+    rightEncoderValue = 0;
 }

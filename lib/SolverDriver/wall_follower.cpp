@@ -68,8 +68,8 @@ void wall_follower(void)
             // Right cell is available
             if (rightDistance > availableSpaceThreshold)
             {
-                //TelnetStream.println("");
-                // TelnetStream.println("Right cell available!");
+                // TelnetStream.println("");
+                //  TelnetStream.println("Right cell available!");
                 encoder_turn_right();
                 leftCell = false;
                 rightCell = false;
@@ -78,8 +78,8 @@ void wall_follower(void)
             // Left cell is available
             else if (leftDistance > availableSpaceThreshold)
             {
-                //TelnetStream.println("");
-                // TelnetStream.println("Left cell available!");
+                // TelnetStream.println("");
+                //  TelnetStream.println("Left cell available!");
                 encoder_turn_left();
                 leftCell = false;
                 rightCell = false;
@@ -87,8 +87,8 @@ void wall_follower(void)
 
             else
             {
-                //TelnetStream.println("");
-                // TelnetStream.println("No cell available!");
+                // TelnetStream.println("");
+                //  TelnetStream.println("No cell available!");
                 encoder_turn_back();
                 leftCell = false;
                 rightCell = false;
@@ -108,6 +108,11 @@ void wall_follower(void)
         delay(100);
         encoder_reverse();
         delay(100);
+        encoder_turn_back();
+        delay(100);
+        encoder_reverse();
+        delay(250);
+        
         calibrationFlag = true;
     }
 }

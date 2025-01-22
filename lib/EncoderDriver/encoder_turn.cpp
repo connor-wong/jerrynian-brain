@@ -4,7 +4,7 @@
 #include <motor_driver.h>
 
 const long pulsesForForward = 2300;
-const long pulsesForReverse = 550;
+const long pulsesForReverse = 650;
 const long pulsesFor180DegreeTurn = 1950;
 const long pulsesFor90DegreeTurn = 890;
 const long pulsesFor45DegreeTurn = 445;

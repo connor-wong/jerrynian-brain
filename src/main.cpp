@@ -31,6 +31,9 @@ volatile float wallIntegral = 0;
 volatile int leftFactor = 0;
 volatile int rightFactor = 0;
 
+/* Flood Fill */
+volatile bool isFastRun = false;
+
 void stop_command(void)
 {
   brake();
@@ -61,24 +64,8 @@ void debug_command(void)
   }
 }
 
-void test_command(void)
-{
-  leftEncoderValue = 0;
-  rightEncoderValue = 0;
-
-  enable_motor();
-  forward_wall_pid(0);
-
-  while (leftEncoderValue < 2100 && rightEncoderValue < 2100)
-  {
-    ;
-  }
-
-  TelnetStream.println("Cell Detected");
-  brake();
-  disable_motor();
-
-  TelnetStream.println("leftEncoderValue: " + String(leftEncoderValue) + " rightEncoderValue: " + String(rightEncoderValue));
+void fast_command(void) {
+  isFastRun = true;
 }
 
 void setup()
@@ -101,7 +88,7 @@ void setup()
   // commandManager.add_command("LEFT", encoder_turn_left);
   // commandManager.add_command("RIGHT", encoder_turn_right);
   commandManager.add_command("CALI", calibrate_tof_front_threshold);
-  // commandManager.add_command("TEST", test_command);
+  commandManager.add_command("FAST", fast_command);
 }
 
 void loop()

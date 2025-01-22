@@ -2,9 +2,8 @@
 #include <motor_driver.h>
 #include <pid_driver.h>
 
-void forward_wall_pid(float correction)
+void forward_wall_pid(float correction, int baseSpeed)
 {
-    int baseSpeed = 100;
     int leftSpeed = baseSpeed - correction;
     int rightSpeed = baseSpeed + correction;
 

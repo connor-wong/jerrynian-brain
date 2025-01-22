@@ -99,7 +99,7 @@ void wall_follower(void)
 
         else
         {
-            forward_wall_pid(correction);
+            forward_wall_pid(correction, 130);
         }
     }
     else // Calibrate before start

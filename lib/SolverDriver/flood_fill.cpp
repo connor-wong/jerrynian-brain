@@ -4,162 +4,195 @@
 #include <pid_driver.h>
 #include <motor_function.h>
 #include <motor_driver.h>
+#include <global_command_manager.h>
 
 #define loopCost 20
 
+// Speed Profile
+const int normalSpeed = 130;
+const int fastSpeed = 180;
+int baseSpeed;
+
 // Front Distance Threshold
-const int frontDistanceThreshold = 130;
+const int frontDistanceThreshold = 140;
 const int availableSpaceThreshold = 180;
 bool calibrationFlag = false;
 
 int score[4][4];  // Scores every square, initialised to 0
 int solved[4][4]; // Records the steps moved
+int debug_maze[4][4];
 // int history[4][4][3]; // Stores last 3 steps of each point
 
 int x, y, facing, x_current, y_current; // Coordinates & direction faced
 int moveCount = 1;                      // Total number of moves made till now
 bool inDeadEnd;                         // Checks if we are inside a deadend
-bool isFastRun = false;                 // During scouting, this is false
-bool reachedEnd;
-bool isLooping;
 
 // Coordinates of ending point on the map (tbc)
 int x1 = 2, y_1 = 2, x2 = 3, y2 = 2, x3 = 2, y3 = 1, x4 = 3, y4 = 1;
 
 void flood_fill(void)
 {
-    if (calibrationFlag)
+    // 0,0 is initialised to be the starting point (bottom right of the maze)
+    // robot facing upwards, need to change depending on starting position
+    x = 0;
+    y = 0;
+    x_current = x - 1;
+    y_current = y - 1;
+    facing = 0;
+
+    set_maze_map_scouting(x1, y_1, x2, y2, x3, y3, x4, y4);
+
+    for (int i = 0; i < 4; i++)
     {
-        // 0,0 is initialised to be the starting point (bottom right of the maze)
-        // robot facing upwards, need to change depending on starting position
-        x = 0;
-        y = 0;
-        x_current = x - 1;
-        y_current = y - 1;
-        facing = 0;
-
-        set_maze_map_scouting(x1, y_1, x2, y2, x3, y3, x4, y4);
-
-        for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
         {
-            for (int j = 0; j < 4; j++)
+            if (i == x1 && j == y_1 || i == x2 && j == y2 || i == x3 && j == y3 || i == x4 && j == y4)
             {
-                if (i == x1 && j == y_1 || i == x2 && j == y2 || i == x3 && j == y3 || i == x4 && j == y4)
-                {
-                    score[i][j] = 0;
-                }
-
-                if (abs(i - x1) <= abs(i - x2))
-                {
-                    score[i][j] += abs(i - x1);
-                }
-                else
-                {
-                    score[i][j] += abs(i - x2);
-                }
-
-                if (abs(j - y_1) <= abs(j - y3))
-                {
-                    score[i][j] += abs(j - y_1);
-                }
-                else
-                {
-                    score[i][j] += abs(j - y3);
-                }
+                score[i][j] = 0;
             }
-        }
 
-        // for (int i = 0; i < 4; i++)
-        // {
-        //     for (int j = 0; j < 4; j++)
-        //     {
-        //         if (solved[i][j] == 111)
-        //         {
-        //             solved[i][j] = 1;
-        //         }
-        //         else if (solved[i][j] == 999)
-        //         {
-        //             solved[i][j] = 9;
-        //         }
-        //         solved[3 - j][i] = solved[i][j];
-        //     }
-        // }
-
-        TelnetStream.println("Checking initialised score array...");
-
-        // checking score array
-        for (int i = 0; i < 4; i++)
-        {
-            for (int j = 0; j < 4; j++)
+            if (abs(i - x1) <= abs(i - x2))
             {
-                score[3 - j][i] = score[i][j];
-                TelnetStream.print(score[i][j]);
+                score[i][j] += abs(i - x1);
             }
-            TelnetStream.println("");
-        }
-
-        TelnetStream.println("starting scouting...");
-
-        while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
-        {
-            if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
+            else
             {
-                think_scout(true); // thinkScout() while not yet at end point
-                movement_debug();
+                score[i][j] += abs(i - x2);
             }
-        }
 
-        brake();
-        disable_motor();
-        TelnetStream.println("Scouting Complete");
-
-        // creating score array after scouting (to set the map)
-        for (int i = 0; i < 4; i++)
-        {
-            for (int j = 0; j < 4; j++)
+            if (abs(j - y_1) <= abs(j - y3))
             {
-                score[i][j] = solved[i][j];
+                score[i][j] += abs(j - y_1);
             }
-        }
-
-        x = 0;
-        y = 0;
-        x_current = x - 1;
-        y_current = y - 1;
-        facing = 0;
-
-        TelnetStream.println("*** Restarting New Map ***");
-        TelnetStream.println("Facing: " + String(facing));
-
-        isFastRun = false;
-
-        if (isFastRun)
-        {
-            while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
+            else
             {
-                think_fast_run(true); // find a way to make robot move after resetting maze
+                score[i][j] += abs(j - y3);
             }
         }
     }
 
-    else // Calibrate before start
-    {
-        calibrate_tof_front_threshold();
-        delay(100);
-        encoder_reverse();
-        delay(100);
-        encoder_turn_back();
-        delay(100);
-        encoder_reverse();
-        delay(250);
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     for (int j = 0; j < 4; j++)
+    //     {
+    //         if (solved[i][j] == 111)
+    //         {
+    //             solved[i][j] = 1;
+    //         }
+    //         else if (solved[i][j] == 999)
+    //         {
+    //             solved[i][j] = 9;
+    //         }
+    //         solved[3 - j][i] = solved[i][j];
+    //     }
+    // }
 
-        leftEncoderValue = 0;
-        rightEncoderValue = 0;
-        calibrationFlag = true;
+    TelnetStream.println("Checking initialised score array...");
+
+    // Checking score array
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            // score[3 - j][i] = score[i][j];
+            TelnetStream.print(score[i][j]);
+        }
+        TelnetStream.println("");
+    }
+
+    if (!isFastRun)
+    {
+        if (calibrationFlag)
+        {
+            baseSpeed = normalSpeed;
+            TelnetStream.println("");
+            TelnetStream.println("*** Scouting Started ***");
+
+            while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
+            {
+                if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
+                {
+                    think_scout(true, baseSpeed); // thinkScout() while not yet at end point
+                    movement_debug();
+                }
+            }
+
+            brake();
+            TelnetStream.println("");
+            TelnetStream.println("*** Scouting Complete ***");
+            TelnetStream.println("");
+
+            // Create score array after scouting (to set the map)
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    score[i][j] = solved[i][j];
+                }
+            }
+
+            commandManager.stop_execution();
+        }
+        else
+        {
+            calibrate_tof_front_threshold();
+            delay(100);
+            encoder_reverse();
+            delay(100);
+            encoder_turn_back();
+            delay(100);
+            encoder_reverse();
+            delay(250);
+
+            leftEncoderValue = 0;
+            rightEncoderValue = 0;
+            calibrationFlag = true;
+        }
+    }
+
+    // Start fast run
+    if (isFastRun)
+    {
+        if (calibrationFlag)
+        {
+            baseSpeed = fastSpeed;
+            TelnetStream.println("");
+            TelnetStream.println("*** Fast Run Started ***");
+
+            while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
+                if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
+                {
+                    think_scout(true, baseSpeed); // thinkScout() while not yet at end point
+                    movement_debug();
+                }
+
+            brake();
+            TelnetStream.println("");
+            TelnetStream.println("*** Fast Run Complete ***");
+            TelnetStream.println("");
+
+            commandManager.stop_execution();
+        }
+
+        else
+        {
+            calibrate_tof_front_threshold();
+            delay(100);
+            encoder_reverse();
+            delay(100);
+            encoder_turn_back();
+            delay(100);
+            encoder_reverse();
+            delay(250);
+
+            leftEncoderValue = 0;
+            rightEncoderValue = 0;
+            calibrationFlag = true;
+        }
     }
 }
 
-void think_scout(bool debug)
+void think_scout(bool debug, int baseSpeed)
 {
     bool wallFront = false;
     bool wallLeft = false;
@@ -447,7 +480,7 @@ void move(char relativeDir, float correction, bool debug)
 
         float correction = calculate_wall_pid(leftDistance, rightDistance, false);
 
-        forward_wall_pid(correction); // Move forward
+        forward_wall_pid(correction, baseSpeed); // Move forward
     }
 
     if (debug)
@@ -774,7 +807,7 @@ void movement_debug(void)
 {
     TelnetStream.println("");
 
-    // creating score array after scouting (correct rotation according to map)
+    // Create score array after scouting (correct rotation according to map)
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 4; j++)
@@ -787,11 +820,11 @@ void movement_debug(void)
             {
                 solved[i][j] = 9;
             }
-            solved[3 - j][i] = solved[i][j];
+            // solved[3 - j][i] = solved[i][j];
         }
     }
 
-    // checking score array
+    // Print score array
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 4; j++)

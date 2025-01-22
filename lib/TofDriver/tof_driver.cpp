@@ -9,7 +9,7 @@ const uint8_t TOF_SENSOR_ADDRESSES[4] = {tofAddress1, tofAddress2, tofAddress4, 
 
 void tof_setup(void)
 {
-    Wire.setClock(100000);
+    Wire.setClock(400000); // Set to 400 kHz
     Wire.begin(SDA_PIN, SCL_PIN);
 
     // Reset and initialize sensors
@@ -45,6 +45,7 @@ void calibrate_tof_front_threshold(void)
     int totalLeft = 0;
     int totalRight = 0;
 
+    TelnetStream.println("");
     TelnetStream.println("*** Calibrating ***");
 
     for (int i = 0; i < 10; i++)
@@ -80,6 +81,7 @@ void calibrate_tof_front_threshold(void)
         rightFactor = correctionFactor;
     }
 
+    TelnetStream.println("");
     TelnetStream.print("Left Factor: ");
     TelnetStream.print(leftFactor);
     TelnetStream.print(" Right Factor: ");

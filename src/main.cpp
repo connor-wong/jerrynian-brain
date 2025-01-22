@@ -38,6 +38,7 @@ void stop_command(void)
   lastWallError = 0;
   wallIntegral = 0;
   commandManager.stop_execution();
+  TelnetStream.println("");
 }
 
 void start_command(void)

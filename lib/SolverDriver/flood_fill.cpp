@@ -18,14 +18,15 @@ int score[14][14];      // Scores every square, initialised to 0
 int solved[14][14];     // Records the steps moved
 int history[14][14][3]; // Stores last 3 steps of each point
 
-int x, y, facing;  // coordinates & direction faced
-int moveCount = 1; // total number of moves made till now
-bool inDeadEnd;    // checks if we are inside a deadend
+int x, y, facing;  // Coordinates & direction faced
+int moveCount = 1; // Total number of moves made till now
+bool inDeadEnd;    // Checks if we are inside a deadend
+bool isFastRun = false; // During scouting, this is false
 bool reachedEnd;
 bool isLooping;
-bool isFastRun = false; // during scouting, this is false
 
-int x1 = 7, y_1 = 7, x2 = 8, y2 = 7, x3 = 7, y3 = 8, x4 = 8, y4 = 8; // coordinates of ending point on the map (tbc)
+// Coordinates of ending point on the map (tbc)
+int x1 = 7, y_1 = 7, x2 = 8, y2 = 7, x3 = 7, y3 = 8, x4 = 8, y4 = 8;
 
 void flood_fill(void)
 {
@@ -39,7 +40,7 @@ void flood_fill(void)
 
     while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
     {
-        think_scout(); // thinkScout() while not yet at end point
+        think_scout(true); // thinkScout() while not yet at end point
     }
 
     // creating score array after scouting (to set the map)
@@ -64,11 +65,11 @@ void flood_fill(void)
 
     while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
     {
-        think_fast_run(); // find a way to make robot move after resetting maze
+        think_fast_run(true); // find a way to make robot move after resetting maze
     }
 }
 
-void think_scout(void)
+void think_scout(bool debug)
 {
     bool wallFront = false;
     bool wallLeft = false;
@@ -111,23 +112,28 @@ void think_scout(void)
 
     if (wallCount == 3) // dead end
     {
+        if (debug)
+        {
+            TelnetStream.println("Dead End");
+        }
+
         inDeadEnd = true; // initiate protocol
-        move('b', correction);
+        move('b', correction, true);
     }
 
     else if (wallCount == 2) // only one way to go
     {
         if (!wallFront)
         {
-            move('f', correction);
+            move('f', correction, true);
         }
         else if (!wallLeft)
         {
-            move('l', correction);
+            move('l', correction, true);
         }
         else
         {
-            move('r', correction);
+            move('r', correction, true);
         }
     }
     else if (wallCount < 2)
@@ -240,28 +246,57 @@ void think_scout(void)
             scoreL = score[u][v];
         }
 
+        if (debug)
+        {
+            TelnetStream.println("");
+            TelnetStream.print("scoreF is ");
+            TelnetStream.print(scoreF);
+            TelnetStream.print("scoreR is ");
+            TelnetStream.print(scoreR);
+            TelnetStream.print("scoreL is ");
+            TelnetStream.println(scoreL);
+        }
+
         // checking if the squares have been visited before
         if (!(wallFront) && scoreF <= scoreR && scoreF <= scoreL) // if front scores more than right and left, go ahead
         {
-            move('f', correction);
+            if (debug)
+            {
+                TelnetStream.println("");
+                TelnetStream.println("Go ahead");
+            }
+
+            move('f', correction, true);
         }
         else if (!(wallRight) && scoreR <= scoreL && scoreR <= scoreF)
         {
-            move('r', correction);
+            if (debug)
+            {
+                TelnetStream.println("");
+                TelnetStream.println("Take a right");
+            }
+
+            move('r', correction, true);
         }
         else if (!(wallLeft) && scoreL <= scoreR && scoreL <= scoreF)
         {
-            move('l', correction);
+            if (debug)
+            {
+                TelnetStream.println("");
+                TelnetStream.println("Take a Left");
+            }
+
+            move('l', correction, true);
         }
         else
         {
-            inDeadEnd = true;      // no other ways left to go
-            move('b', correction); // only way left to go
+            inDeadEnd = true;            // no other ways left to go
+            move('b', correction, true); // only way left to go
         }
     }
 }
 
-void move(char relativeDir, float correction)
+void move(char relativeDir, float correction, bool debug)
 {
     score[x][y]++;
     moveCount++;
@@ -271,12 +306,27 @@ void move(char relativeDir, float correction)
     {
         score[x][y] = 999;  // Mark as dead end
         solved[x][y] = 999; // Marking dead ends as path to not travel
+
+        if (debug)
+        {
+            TelnetStream.println("");
+            TelnetStream.print("This is dead end, coordinates are ");
+            TelnetStream.print(x);
+            TelnetStream.print(", ");
+            TelnetStream.println(y);
+        }
     }
 
     if (relativeDir == 'b') // Turn back
     {
         encoder_turn_back();
         facing = (facing + 2) % 4;
+
+        if (debug)
+        {
+            TelnetStream.println("");
+            TelnetStream.println("Moving back");
+        }
     }
     else if (relativeDir == 'r') // Turn right
     {
@@ -368,7 +418,7 @@ void set_maze_map_actual_run(int x1, int y_1, int x2, int y2, int x3, int y3, in
     }
 }
 
-void think_fast_run(void)
+void think_fast_run(bool debug)
 {
     bool wallFront = false;
     bool wallLeft = false;
@@ -407,26 +457,32 @@ void think_fast_run(void)
     {
         bool isLooping = true;
         score[x][y] -= loopCost;
+
+        if (debug)
+        {
+            TelnetStream.println("");
+            TelnetStream.println("Looping ...");
+        }
     }
 
     if (wallCount == 3) // dead end
     {
         inDeadEnd = true; // initiate protocol
-        move('b', correction);
+        move('b', correction, true);
     }
     else if (wallCount == 2)
     { // only one way to go
         if (!wallFront)
         {
-            move('f', correction);
+            move('f', correction, true);
         }
         else if (!wallLeft)
         {
-            move('l', correction);
+            move('l', correction, true);
         }
         else
         {
-            move('r', correction);
+            move('r', correction, true);
         }
     }
     else if (wallCount < 2)
@@ -558,23 +614,40 @@ void think_fast_run(void)
             }
         }
 
+        if (debug)
+        {
+            TelnetStream.println("");
+            TelnetStream.print("scoreF is ");
+            TelnetStream.print(scoreF);
+            TelnetStream.print("scoreR is ");
+            TelnetStream.print(scoreR);
+            TelnetStream.print("scoreL is ");
+            TelnetStream.println(scoreL);
+        }
+
         // checking if the squares have been visited before
         if (!(wallFront) && scoreF <= scoreR && scoreF <= scoreL && scoreF != 0 && scoreL != 0)
         {
-            move('f', correction); // if front scores more than right and left, go ahead
+            TelnetStream.println("");
+            TelnetStream.println("Go ahead");
+            move('f', correction, true); // if front scores more than right and left, go ahead
         }
         else if (!(wallRight) && scoreR <= scoreL && scoreR <= scoreF)
         {
-            move('r', correction);
+            TelnetStream.println("");
+            TelnetStream.println("Take a right");
+            move('r', correction, true);
         }
         else if (!(wallLeft) && scoreL <= scoreR && scoreL <= scoreF)
         {
-            move('l', correction);
+            TelnetStream.println("");
+            TelnetStream.println("Take a left");
+            move('l', correction, true);
         }
         else
         {
-            inDeadEnd = true;      // no other ways left to go
-            move('b', correction); // only way left to go
+            inDeadEnd = true;            // no other ways left to go
+            move('b', correction, true); // only way left to go
         }
     }
 }

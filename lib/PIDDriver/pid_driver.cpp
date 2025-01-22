@@ -31,6 +31,7 @@ float calculate_wall_pid(int leftDistance, int rightDistance, bool debug)
 
     if (debug)
     {
+        TelnetStream.println("");
         TelnetStream.print("Correction: ");
         TelnetStream.println(correction);
     }

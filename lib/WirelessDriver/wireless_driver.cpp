@@ -56,6 +56,7 @@ String received_command(bool echo)
 
             if (echo)
             {
+                TelnetStream.println("");
                 TelnetStream.println("Received Command: " + receivedMessage);
             }
 

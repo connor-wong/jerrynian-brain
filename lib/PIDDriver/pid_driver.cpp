@@ -6,30 +6,26 @@ const double wallKi = 0.0;
 const double wallKd = 2.0;
 
 // Encoder PID Parameters
-const double encoderKp = 1;
+const double encoderKp = 1.0;
 const double encoderKi = 0.0;
 const double encoderKd = 0.0;
 
 const int availableSpaceThreshold = 130;
-const int wallDistance = 115;
-
-float leftIntegral = 0, rightIntegral = 0;
-float leftPrevError = 0, rightPrevError = 0;
+const int wallDistance = 117;
 
 float calculate_wall_pid(int leftDistance, int rightDistance, bool debug)
 {
-
     if (leftDistance > availableSpaceThreshold)
     {
-        leftDistance = 115;
+        leftDistance = wallDistance;
     }
 
     if (rightDistance > availableSpaceThreshold)
     {
-        rightDistance = 115;
+        rightDistance = wallDistance;
     }
 
-    double error = leftDistance - rightDistance;
+    float error = leftDistance - rightDistance;
     wallIntegral += error;
 
     float proportional = wallKp * error;
@@ -41,55 +37,30 @@ float calculate_wall_pid(int leftDistance, int rightDistance, bool debug)
     if (debug)
     {
         TelnetStream.println("");
-        TelnetStream.print("Correction: ");
+        TelnetStream.print("Wall PID Correction: ");
         TelnetStream.println(correction);
     }
 
     return correction;
 }
 
-int calculate_left_encoder_pid(int leftTargetSpeed, bool debug)
+float calculate_encoder_pid(bool debug)
 {
-    // Calculate speed errors
-    float leftError = leftTargetSpeed - leftEncoderValue;
+    float encoderError = leftEncoderValue - rightEncoderValue;
+    encoderIntegral += encoderError;
 
-    // Update integral terms
-    leftIntegral += leftError;
+    float proportional = encoderKp * encoderError;
+    float derivative = encoderError - lastEncoderError;
 
-    // Calculate derivative terms
-    float leftDerivative = leftError - leftPrevError;
+    float correction = proportional + encoderKi * encoderIntegral + encoderKd * derivative;
+    lastEncoderError = encoderError;
 
-    // Compute PID outputs for motors
-    float leftPWM = encoderKp * leftError + encoderKi * leftIntegral + encoderKd * leftDerivative;
+    if (debug)
+    {
+        TelnetStream.println("");
+        TelnetStream.print("Encoder PID Correction: ");
+        TelnetStream.println(correction);
+    }
 
-    // Save errors for next loop
-    leftPrevError = leftError;
-
-    // Constrain PWM values
-    leftPWM = constrain(leftPWM, 0, 255);
-
-    return leftPWM;
-}
-
-int calculate_right_encoder_pid(int rightTargetSpeed, bool debug)
-{
-    // Calculate speed errors
-    float rightError = rightTargetSpeed - rightEncoderValue;
-
-    // Update integral terms
-    rightIntegral += rightError;
-
-    // Calculate derivative terms
-    float rightDerivative = rightError - rightPrevError;
-
-    // Compute PID outputs for motors
-    float rightPWM = encoderKp * rightError + encoderKi * rightIntegral + encoderKd * rightDerivative;
-
-    // Save errors for next loop
-    rightPrevError = rightError;
-
-    // Constrain PWM values
-    rightPWM = constrain(rightPWM, 0, 255);
-
-    return rightPWM;
+    return correction;
 }

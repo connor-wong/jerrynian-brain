@@ -11,6 +11,7 @@ IPAddress secondaryDNS(8, 8, 4, 4);     // Secondary DNS (Google)
 void ota_setup(const char *ssid, const char *password)
 {
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
 
     // Set static IP
     if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))

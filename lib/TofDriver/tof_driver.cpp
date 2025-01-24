@@ -9,7 +9,7 @@ const uint8_t TOF_SENSOR_ADDRESSES[4] = {tofAddress1, tofAddress2, tofAddress4, 
 
 void tof_setup(void)
 {
-    Wire.setClock(100000); // Set to 400 kHz
+    Wire.setClock(80000);
     Wire.begin(SDA_PIN, SCL_PIN);
 
     // Reset and initialize sensors
@@ -98,11 +98,14 @@ std::array<uint16_t, sensorNum> tof_read(bool debug)
         uint16_t distance = tof_sensors[i].readRangeContinuousMillimeters();
         delay(10);
 
-        if (tof_sensors[i].timeoutOccurred() || distance == 65535)
+        if (tof_sensors[i].timeoutOccurred() || distance > 8190)
         {
             TelnetStream.println("Time Out Error!");
             brake();
             disable_motor();
+
+            while (true)
+                ;
         }
         else
         {

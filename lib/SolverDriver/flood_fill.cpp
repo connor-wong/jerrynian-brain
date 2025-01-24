@@ -5,33 +5,41 @@
 #include <motor_function.h>
 #include <motor_driver.h>
 #include <global_command_manager.h>
+#include <wireless_driver.h>
 
 #define loopCost 20
 
 // Speed Profile
-const int normalSpeed = 130;
-const int fastSpeed = 180;
+const int normalSpeed = 110;
+const int fastSpeed = 150;
+const int cellNormalDistance = 2950;
+const int cellFastDistance = 2950;
 int baseSpeed;
+int cellDistance;
+bool rightCell = false;
+bool leftCell = false;
 
 // Front Distance Threshold
-const int frontDistanceThreshold = 140;
-const int availableSpaceThreshold = 180;
+const int frontDistanceThreshold = 150;
+const int availableSpaceThreshold = 175;
 bool calibrationFlag = false;
 
 int score[4][4];  // Scores every square, initialised to 0
 int solved[4][4]; // Records the steps moved
 int debug_maze[4][4];
-// int history[4][4][3]; // Stores last 3 steps of each point
+int alt_path_back[4][4];
 
 int x, y, facing, x_current, y_current; // Coordinates & direction faced
-int moveCount = 1;                      // Total number of moves made till now
 bool inDeadEnd;                         // Checks if we are inside a deadend
+bool if_alt_path_back_run = false;
 
-// Coordinates of ending point on the map (tbc)
+// Coordinates of ending point on the map
 int x1 = 2, y_1 = 2, x2 = 3, y2 = 2, x3 = 2, y3 = 1, x4 = 3, y4 = 1;
 
 void flood_fill(void)
 {
+    wait_for_command();
+
     // 0,0 is initialised to be the starting point (bottom right of the maze)
     // robot facing upwards, need to change depending on starting position
     x = 0;
@@ -40,71 +48,27 @@ void flood_fill(void)
     y_current = y - 1;
     facing = 0;
 
-    set_maze_map_scouting(x1, y_1, x2, y2, x3, y3, x4, y4);
-
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            if (i == x1 && j == y_1 || i == x2 && j == y2 || i == x3 && j == y3 || i == x4 && j == y4)
-            {
-                score[i][j] = 0;
-            }
-
-            if (abs(i - x1) <= abs(i - x2))
-            {
-                score[i][j] += abs(i - x1);
-            }
-            else
-            {
-                score[i][j] += abs(i - x2);
-            }
-
-            if (abs(j - y_1) <= abs(j - y3))
-            {
-                score[i][j] += abs(j - y_1);
-            }
-            else
-            {
-                score[i][j] += abs(j - y3);
-            }
-        }
-    }
-
-    // for (int i = 0; i < 4; i++)
-    // {
-    //     for (int j = 0; j < 4; j++)
-    //     {
-    //         if (solved[i][j] == 111)
-    //         {
-    //             solved[i][j] = 1;
-    //         }
-    //         else if (solved[i][j] == 999)
-    //         {
-    //             solved[i][j] = 9;
-    //         }
-    //         solved[3 - j][i] = solved[i][j];
-    //     }
-    // }
-
-    TelnetStream.println("Checking initialised score array...");
-
-    // Checking score array
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            // score[3 - j][i] = score[i][j];
-            TelnetStream.print(score[i][j]);
-        }
-        TelnetStream.println("");
-    }
-
     if (!isFastRun)
     {
         if (calibrationFlag)
         {
+            set_maze_map_scouting(x1, y_1, x2, y2, x3, y3, x4, y4);
+
+            TelnetStream.println("Checking initialised score array...");
+
+            // Checking score array
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    // score[3 - j][i] = score[i][j];
+                    TelnetStream.print(score[i][j]);
+                }
+                TelnetStream.println("");
+            }
+
             baseSpeed = normalSpeed;
+            cellDistance = cellNormalDistance;
             TelnetStream.println("");
             TelnetStream.println("*** Scouting Started ***");
 
@@ -112,7 +76,7 @@ void flood_fill(void)
             {
                 if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
                 {
-                    think_scout(true, baseSpeed); // thinkScout() while not yet at end point
+                    think_scout(true); // thinkScout() while not yet at end point
                     movement_debug();
                 }
             }
@@ -120,16 +84,30 @@ void flood_fill(void)
             brake();
             TelnetStream.println("");
             TelnetStream.println("*** Scouting Complete ***");
-            TelnetStream.println("");
 
-            // Create score array after scouting (to set the map)
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    score[i][j] = solved[i][j];
-                }
-            }
+            // alternate path back after fast run - COMMENT OUT IF NOT USING
+            // TelnetStream.println("");
+            // TelnetStream.println("*** Starting Path Back ***");
+            // if_alt_path_back_run = true;
+            // delay(3000);
+            // set_maze_map_alt_path_back(); // sets and print maze map
+            // move('b', 0, true);           // rotate and turn back
+
+            // while (!(x == 0 && y == 0))
+            // {
+            //     if (x != x_current || y != y_current)
+            //     {
+            //         think_scout(true);
+            //         movement_debug();
+            //     }
+            // }
+
+            // brake();
+            // if_alt_path_back_run = false;
+
+            // TelnetStream.println("");
+            // TelnetStream.println("*** Alt Path Back Complete ***");
+            // TelnetStream.println("");
 
             commandManager.stop_execution();
         }
@@ -156,20 +134,63 @@ void flood_fill(void)
         if (calibrationFlag)
         {
             baseSpeed = fastSpeed;
+            cellDistance = cellFastDistance;
             TelnetStream.println("");
             TelnetStream.println("*** Fast Run Started ***");
 
+            set_maze_map_actual_run(x1, y_1, x2, y2, x3, y3, x4, y4);
+
+            TelnetStream.println("Checking actual maze map...");
+
+            // checking new score array for actual maze map
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    solved[i][j] = 0; // reinitialising solved array
+                    debug_maze[i][j] = score[i][j];
+                    TelnetStream.print(debug_maze[i][j]);
+                }
+                TelnetStream.println("");
+            }
+
             while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
+            {
                 if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
                 {
-                    think_scout(true, baseSpeed); // thinkScout() while not yet at end point
+                    think_fast_run(true); // thinkScout() while not yet at end point
                     movement_debug();
                 }
+            }
 
             brake();
             TelnetStream.println("");
             TelnetStream.println("*** Fast Run Complete ***");
             TelnetStream.println("");
+
+            // alternate path back after fast run - COMMENT OUT IF NOT USING
+            // TelnetStream.println("");
+            // TelnetStream.println("*** Starting Path Back ***");
+            // if_alt_path_back_run = true;
+            // delay(3000);
+            // set_maze_map_alt_path_back(); // sets and print maze map
+            // move('b', 0, true);           // rotate and turn back
+
+            // while (!(x == 0 && y == 0))
+            // {
+            //     if (x != x_current || y != y_current)
+            //     {
+            //         think_scout(true);
+            //         movement_debug();
+            //     }
+            // }
+
+            // brake();
+            // if_alt_path_back_run = false;
+
+            // TelnetStream.println("");
+            // TelnetStream.println("*** Alt Path Back Complete ***");
+            // TelnetStream.println("");
 
             commandManager.stop_execution();
         }
@@ -192,7 +213,7 @@ void flood_fill(void)
     }
 }
 
-void think_scout(bool debug, int baseSpeed)
+void think_scout(bool debug)
 {
     bool wallFront = false;
     bool wallLeft = false;
@@ -298,7 +319,14 @@ void think_scout(bool debug, int baseSpeed)
                 v = y;
             }
 
-            scoreF = score[u][v]; // score of the pixel in front of robot
+            if (if_alt_path_back_run)
+            {
+                scoreF = alt_path_back[u][v];
+            }
+            else
+            {
+                scoreF = score[u][v]; // score of the pixel in front of robot
+            }
         }
 
         if (!wallRight) // moving to direction where there is open space, u and v represent the coordinates after moving
@@ -332,7 +360,14 @@ void think_scout(bool debug, int baseSpeed)
                 v = y; // leftwards
             }
 
-            scoreR = score[u][v]; // score of pixel to the right
+            if (if_alt_path_back_run)
+            {
+                scoreR = alt_path_back[u][v];
+            }
+            else
+            {
+                scoreR = score[u][v]; // score of the pixel in front of robot
+            }
         }
 
         if (!wallLeft) // moving to direction where there is open space, u and v represent the coordinates after moving
@@ -366,7 +401,14 @@ void think_scout(bool debug, int baseSpeed)
                 v = y; // leftwards
             }
 
-            scoreL = score[u][v];
+            if (if_alt_path_back_run)
+            {
+                scoreL = alt_path_back[u][v];
+            }
+            else
+            {
+                scoreL = score[u][v]; // score of the pixel in front of robot
+            }
         }
 
         if (debug)
@@ -421,9 +463,16 @@ void think_scout(bool debug, int baseSpeed)
 
 void move(char relativeDir, float correction, bool debug)
 {
+    std::array<uint16_t, 4> readings = tof_read(false);
+
+    int leftDistance = readings[3];
+    int leftDiagonal = readings[2];
+    int rightDiagonal = readings[1];
+    int rightDistance = readings[0];
+
+    check_available_cell(leftDiagonal, rightDiagonal);
 
     score[x][y]++;
-    moveCount++;
     solved[x][y] = 111; // Recording the moves made in the array
 
     if (inDeadEnd)
@@ -445,6 +494,8 @@ void move(char relativeDir, float correction, bool debug)
     {
         encoder_turn_back();
         facing = (facing + 2) % 4;
+        rightCell = false;
+        leftCell = false;
 
         if (debug)
         {
@@ -454,23 +505,32 @@ void move(char relativeDir, float correction, bool debug)
     }
     else if (relativeDir == 'r') // Turn right
     {
-        encoder_turn_right();
-        facing = (facing + 1) % 4;
+        if (rightDiagonal <= availableSpaceThreshold) // Detect next edge
+        {
+            encoder_turn_right();
+            facing = (facing + 1) % 4;
+            rightCell = false;
+        }
     }
     else if (relativeDir == 'l') // Turn left
     {
-        encoder_turn_left();
-        facing = (facing + 3) % 4;
+        if (leftDiagonal <= availableSpaceThreshold) // Detect next edge
+        {
+            encoder_turn_left();
+            facing = (facing + 3) % 4;
+            leftCell = false;
+        }
     }
 
-    while (leftEncoderValue < 3000 && rightEncoderValue < 3000) // changed it to this, so while it hasnt moved a coordinate it keeps moving forward
+    // Changed it to this, so while it hasnt moved a coordinate it keeps moving forward
+    while (leftEncoderValue < cellDistance && rightEncoderValue < cellDistance)
     {
-        std::array<uint16_t, 4> readings = tof_read(false);
+        readings = tof_read(false);
 
-        int leftDistance = readings[3];
-        int leftDiagonal = readings[2];
-        int rightDiagonal = readings[1];
-        int rightDistance = readings[0];
+        leftDistance = readings[3];
+        leftDiagonal = readings[2];
+        rightDiagonal = readings[1];
+        rightDistance = readings[0];
 
         // Reach end of wall
         if (leftDiagonal < frontDistanceThreshold && rightDiagonal < frontDistanceThreshold)
@@ -494,11 +554,31 @@ void move(char relativeDir, float correction, bool debug)
     y_current = y;
 
     // Adjust the coordinates
-    x = (facing == 1) ? x + 1 : (facing == 3) ? x - 1
-                                              : x;
+    if (facing == 1)
+    {
+        x += 1;
+    }
+    else if (facing == 3)
+    {
+        x -= 1;
+    }
+    else
+    {
+        x = x;
+    }
 
-    y = (facing == 0) ? y + 1 : (facing == 2) ? y - 1
-                                              : y;
+    if (facing == 0)
+    {
+        y += 1;
+    }
+    else if (facing == 2)
+    {
+        y -= 1;
+    }
+    else
+    {
+        y = y;
+    }
 
     // Reset encoder values after each cell detection
     leftEncoderValue = 0;
@@ -543,6 +623,14 @@ void set_maze_map_actual_run(int x1, int y_1, int x2, int y2, int x3, int y3, in
     {
         for (int j = 0; j < 4; j++)
         {
+            score[i][j] = solved[i][j];
+        }
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
             if (i == x1 && j == y_1 || i == x2 && j == y2 || i == x3 && j == y3 || i == x4 && j == y4)
             {
                 score[i][j] == 0;
@@ -568,7 +656,30 @@ void set_maze_map_actual_run(int x1, int y_1, int x2, int y2, int x3, int y3, in
                     score[i][j] += abs(j - y3);
                 }
             }
+            else
+            {
+                score[i][j] = 999;
+            }
         }
+    }
+}
+
+void set_maze_map_alt_path_back(void)
+{
+    TelnetStream.println("");
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            solved[i][j] = 0;
+            if (i == 0 && j == 0)
+            {
+                alt_path_back[i][j] = 0;
+            }
+            alt_path_back[i][j] = i + j;
+            TelnetStream.print(alt_path_back[i][j]);
+        }
+        TelnetStream.println("");
     }
 }
 
@@ -603,6 +714,14 @@ void think_fast_run(bool debug)
         wallRight = true;
     }
 
+    if (debug)
+    {
+        TelnetStream.println("");
+        TelnetStream.println("Current coordinates (" + String(x) + "," + String(y) + "): ");
+        TelnetStream.println("wallFront: " + String(wallFront) + " WallLeft: " + String(wallLeft) + " WallRight: " + String(wallRight));
+        TelnetStream.println("");
+    }
+
     int wallCount = wallFront + wallRight + wallLeft;
 
     if (wallCount == 3) // dead end
@@ -610,8 +729,8 @@ void think_fast_run(bool debug)
         inDeadEnd = true; // initiate protocol
         move('b', correction, true);
     }
-    else if (wallCount == 2)
-    { // only one way to go
+    else if (wallCount == 2) // only one way to go
+    {
         if (!wallFront)
         {
             move('f', correction, true);
@@ -814,11 +933,15 @@ void movement_debug(void)
         {
             if (solved[i][j] == 111)
             {
-                solved[i][j] = 1;
+                debug_maze[i][j] = 1;
             }
             else if (solved[i][j] == 999)
             {
-                solved[i][j] = 9;
+                debug_maze[i][j] = 9;
+            }
+            else
+            {
+                debug_maze[i][j] = 0;
             }
             // solved[3 - j][i] = solved[i][j];
         }
@@ -829,8 +952,31 @@ void movement_debug(void)
     {
         for (int j = 0; j < 4; j++)
         {
-            TelnetStream.print(solved[i][j]);
+            TelnetStream.print(debug_maze[i][j]);
         }
         TelnetStream.println("");
+    }
+}
+
+void check_available_cell(int leftDiagonal, int rightDiagonal)
+{
+    if (!leftCell)
+    {
+        if (leftDiagonal > 240)
+        {
+            TelnetStream.println("");
+            TelnetStream.println("Left cell detected!");
+            leftCell = true;
+        }
+    }
+
+    if (!rightCell)
+    {
+        if (rightDiagonal > 240)
+        {
+            TelnetStream.println("");
+            TelnetStream.println("Right cell detected!");
+            rightCell = true;
+        }
     }
 }

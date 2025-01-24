@@ -13,9 +13,10 @@ extern volatile float wallIntegral;
 // Encoders
 extern volatile int leftEncoderValue;
 extern volatile int rightEncoderValue;
+extern volatile float lastEncoderError;
+extern volatile float encoderIntegral;
 
 float calculate_wall_pid(int leftDistance, int rightDistance, bool debug);
-int calculate_left_encoder_pid(int leftTargetSpeed, bool debug);
-int calculate_right_encoder_pid(int rightTargetSpeed, bool debug);
+float calculate_encoder_pid(bool debug);
 
 #endif

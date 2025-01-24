@@ -7,14 +7,15 @@
 // Front Distance Threshold
 const int frontDistanceThreshold = 130;
 const int availableSpaceThreshold = 175;
+const int wallSpeed = 130;
 
-bool rightCell = false;
-bool leftCell = false;
-bool calibrationFlag = false;
+bool rightWallCell = false;
+bool leftWallCell = false;
+bool wallCalibrationFlag = false;
 
 void wall_follower(void)
 {
-    if (calibrationFlag)
+    if (wallCalibrationFlag)
     {
         std::array<uint16_t, 4> readings = tof_read(false);
 
@@ -23,12 +24,13 @@ void wall_follower(void)
         int rightDiagonal = readings[1];
         int rightDistance = readings[0];
 
-        check_available_cell(leftDiagonal, rightDiagonal);
+        wall_check_available_cell(leftDiagonal, rightDiagonal);
 
         /* Wall Follower PID */
         float correction = calculate_wall_pid(leftDistance, rightDistance, false);
 
-        // if (rightCell)
+        /* Uncomment for right follower */
+        // if (rightWallCell)
         // {
         //     if (rightDiagonal < availableSpaceThreshold) // Detect next edge
         //     {
@@ -36,11 +38,12 @@ void wall_follower(void)
         //         delay(500);
         //         encoder_turn_right();
         //         delay(500);
-        //         rightCell = false;
+        //         rightWallCell = false;
         //     }
         // }
 
-        if (leftCell)
+        /* Left follower */
+        if (leftWallCell)
         {
             if (leftDiagonal <= availableSpaceThreshold) // Detect next edge
             {
@@ -48,7 +51,7 @@ void wall_follower(void)
                 delay(500);
                 encoder_turn_left();
                 delay(500);
-                leftCell = false;
+                leftWallCell = false;
             }
         }
 
@@ -71,8 +74,8 @@ void wall_follower(void)
                 // TelnetStream.println("");
                 //  TelnetStream.println("Right cell available!");
                 encoder_turn_right();
-                leftCell = false;
-                rightCell = false;
+                leftWallCell = false;
+                rightWallCell = false;
             }
 
             // Left cell is available
@@ -81,8 +84,8 @@ void wall_follower(void)
                 // TelnetStream.println("");
                 //  TelnetStream.println("Left cell available!");
                 encoder_turn_left();
-                leftCell = false;
-                rightCell = false;
+                leftWallCell = false;
+                rightWallCell = false;
             }
 
             else
@@ -90,8 +93,8 @@ void wall_follower(void)
                 // TelnetStream.println("");
                 //  TelnetStream.println("No cell available!");
                 encoder_turn_back();
-                leftCell = false;
-                rightCell = false;
+                leftWallCell = false;
+                rightWallCell = false;
             }
 
             delay(500);
@@ -99,7 +102,7 @@ void wall_follower(void)
 
         else
         {
-            forward_wall_pid(correction, 130);
+            forward_wall_pid(correction, wallSpeed);
         }
     }
     else // Calibrate before start
@@ -113,29 +116,29 @@ void wall_follower(void)
         encoder_reverse();
         delay(250);
         
-        calibrationFlag = true;
+        wallCalibrationFlag = true;
     }
 }
 
-void check_available_cell(int leftDiagonal, int rightDiagonal)
+void wall_check_available_cell(int leftDiagonal, int rightDiagonal)
 {
-    if (!leftCell)
+    if (!leftWallCell)
     {
         if (leftDiagonal > 240)
         {
             TelnetStream.println("");
             TelnetStream.println("Left cell detected!");
-            leftCell = true;
+            leftWallCell = true;
         }
     }
 
-    if (!rightCell)
+    if (!rightWallCell)
     {
         if (rightDiagonal > 240)
         {
             TelnetStream.println("");
             TelnetStream.println("Right cell detected!");
-            rightCell = true;
+            rightWallCell = true;
         }
     }
 }

@@ -2,16 +2,17 @@
 #include <motor_driver.h>
 #include <pid_driver.h>
 
-void forward_wall_pid(float correction, int baseSpeed)
+void forward_wall_pid(float wallCorrection, int baseSpeed)
 {
-    int leftSpeed = baseSpeed - correction;
-    int rightSpeed = baseSpeed + correction;
+    // Encoder PID
+    float encoderCorrection = calculate_encoder_pid(false);
+    // float encoderCorrection = 0;
+    int leftSpeed = baseSpeed - encoderCorrection;
+    int rightSpeed = baseSpeed + encoderCorrection;
 
-    // int leftSpeed = calculate_left_encoder_pid(leftTargetSpeed, false);
-    // int rightSpeed = calculate_right_encoder_pid(rightTargetSpeed, false);
-
-    // TelnetStream.println("leftTargetSpeed: " + String(leftTargetSpeed) + " rightTargetSpeed: " + String(rightTargetSpeed));
-    // TelnetStream.println("leftSpeed: " + String(leftSpeed) + " rightSpeed: " + String(rightSpeed));
+    // Wall PID
+    leftSpeed = baseSpeed - wallCorrection;
+    rightSpeed = baseSpeed + wallCorrection;
 
     left_forward();
     right_forward();

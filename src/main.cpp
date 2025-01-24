@@ -15,17 +15,20 @@
 #include <wall_follower.h>
 #include <flood_fill.h>
 
-bool startFlag = false;
-bool debugFlag = false;
+bool manualFlag = false;
 
 /* Encoder Variables */
 volatile int leftEncoderValue = 0;
 volatile int rightEncoderValue = 0;
 volatile bool encoderDataReady = false;
 
-/*  Wall PID Parameters */
+/* Wall PID Parameters */
 volatile float lastWallError = 0;
 volatile float wallIntegral = 0;
+
+/* Encoder PID Parameters */
+volatile float lastEncoderError = 0;
+volatile float encoderIntegral = 0;
 
 /* Sensor Correction Factor */
 volatile int leftFactor = 0;
@@ -51,7 +54,16 @@ void start_command(void)
   {
     wait_for_command();
     flood_fill();
-    // wall_follower();
+  }
+}
+
+void wall_command(void)
+{
+  enable_motor();
+  while (!commandManager.should_stop())
+  {
+    wait_for_command();
+    wall_follower();
   }
 }
 
@@ -64,9 +76,34 @@ void debug_command(void)
   }
 }
 
-void fast_command(void) {
+void fast_command(void)
+{
   isFastRun = true;
 }
+
+// void manual_command(void)
+// {
+//   if (manualFlag)
+//   {
+//     std::array<uint16_t, 4> readings = tof_read(false);
+
+//     int leftDiagonal = readings[2];
+//     int rightDiagonal = readings[1];
+
+//     if (leftDiagonal < 100 && rightDiagonal < 100)
+//     {
+//       manualFlag = true;
+//     }
+//   }
+
+//   else
+//   {
+//     enable_motor();
+
+//     flood_fill();
+//     // wall_follower();
+//   }
+// }
 
 void setup()
 {
@@ -89,6 +126,7 @@ void setup()
   // commandManager.add_command("RIGHT", encoder_turn_right);
   commandManager.add_command("CALI", calibrate_tof_front_threshold);
   commandManager.add_command("FAST", fast_command);
+  commandManager.add_command("WALL", wall_command);
 }
 
 void loop()

@@ -15,8 +15,6 @@
 #include <wall_follower.h>
 #include <flood_fill.h>
 
-bool manualFlag = false;
-
 /* Encoder Variables */
 volatile int leftEncoderValue = 0;
 volatile int rightEncoderValue = 0;
@@ -37,12 +35,16 @@ volatile int rightFactor = 0;
 /* Flood Fill */
 volatile bool isFastRun = false;
 
+/* WiFi Flag */
+volatile bool manualFlag = false;
+
 void stop_command(void)
 {
   brake();
   disable_motor();
   lastWallError = 0;
   wallIntegral = 0;
+  manualFlag = false;
   commandManager.stop_execution();
   TelnetStream.println("");
 }
@@ -81,29 +83,36 @@ void fast_command(void)
   isFastRun = true;
 }
 
-// void manual_command(void)
-// {
-//   if (manualFlag)
-//   {
-//     std::array<uint16_t, 4> readings = tof_read(false);
+void manual_command(void)
+{
+  if (manualFlag)
+  {
+    std::array<uint16_t, 4> readings = tof_read(false);
 
-//     int leftDiagonal = readings[2];
-//     int rightDiagonal = readings[1];
+    int leftDiagonal = readings[2];
+    int rightDiagonal = readings[1];
 
-//     if (leftDiagonal < 100 && rightDiagonal < 100)
-//     {
-//       manualFlag = true;
-//     }
-//   }
+    if (leftDiagonal < 100 && rightDiagonal < 100)
+    {
+      delay(100);
+      readings = tof_read(false);
 
-//   else
-//   {
-//     enable_motor();
+      leftDiagonal = readings[2];
+      rightDiagonal = readings[1];
 
-//     flood_fill();
-//     // wall_follower();
-//   }
-// }
+      if (leftDiagonal < 100 && rightDiagonal < 100)
+      {
+        manualFlag = true;
+      }
+    }
+  }
+
+  else
+  {
+    enable_motor();
+    flood_fill();
+  }
+}
 
 void setup()
 {
@@ -133,6 +142,5 @@ void loop()
 {
   ArduinoOTA.handle();
   wait_for_command();
-
   delay(10);
 }

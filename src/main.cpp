@@ -140,6 +140,7 @@ void setup()
 
 void loop()
 {
+  //encoder_debug();
   ArduinoOTA.handle();
   wait_for_command();
   delay(10);

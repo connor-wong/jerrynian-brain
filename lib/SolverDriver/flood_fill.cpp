@@ -10,18 +10,21 @@
 #define loopCost 20
 
 // Speed Profile
-const int normalSpeed = 130;
-const int fastSpeed = 150;
-const int cellNormalDistance = 2100;
-const int cellFastDistance = 2100;
+const int normalSpeed = 150;
+const int fastSpeed = 130;
+const int cellNormalDistance = 2500;
+const int cellFastDistance = 2500;
 int baseSpeed;
 int cellDistance;
+
+// Available Turn Detection
 bool rightCell = false;
 bool leftCell = false;
+bool turnFlag = false;
 
 // Front Distance Threshold
-const int frontDistanceThreshold = 145;
-const int availableSpaceThreshold = 170;
+const int frontDistanceThreshold = 140;
+const int availableSpaceThreshold = 140;
 bool calibrationFlag = false;
 
 // Number of cells
@@ -44,15 +47,14 @@ int x1 = 6, y_1 = 6, x2 = 6, y2 = 7, x3 = 7, y3 = 6, x4 = 7, y4 = 7;
 
 void flood_fill(void)
 {
-
     wait_for_command();
 
     // 0,0 is initialised to be the starting point (bottom right of the maze)
     // robot facing upwards, need to change depending on starting position
     x = 0;
     y = 0;
-    x_current = x - 1;
-    y_current = y - 1;
+    x_current = x - 4;
+    y_current = y - 4;
     facing = 0;
 
     if (!isFastRun)
@@ -83,6 +85,7 @@ void flood_fill(void)
 
             while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
             {
+                wait_for_command();
                 if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
                 {
                     think_scout(true); // thinkScout() while not yet at end point
@@ -104,6 +107,7 @@ void flood_fill(void)
 
             while (!(x == 0 && y == 0))
             {
+                wait_for_command();
                 if (x != x_current || y != y_current)
                 {
                     think_scout(true);
@@ -165,6 +169,7 @@ void flood_fill(void)
 
             while (!(x == x1 && y == y_1) && !(x == x2 && y == y2) && !(x == x3 && y == y3) && !(x == x4 && y == y4))
             {
+                wait_for_command();
                 if (x != x_current || y != y_current) // basically when the x or y coordinate changes it will need to think_scout again
                 {
                     think_fast_run(true); // thinkScout() while not yet at end point
@@ -187,6 +192,7 @@ void flood_fill(void)
 
             while (!(x == 0 && y == 0))
             {
+                wait_for_command();
                 if (x != x_current || y != y_current)
                 {
                     think_scout(true);
@@ -229,6 +235,8 @@ void think_scout(bool debug)
     bool wallRight = false;
 
     std::array<uint16_t, 4> readings = tof_read(false);
+    delay(10);
+    readings = tof_read(false);
 
     int leftDistance = readings[3];
     int leftDiagonal = readings[2];
@@ -254,6 +262,7 @@ void think_scout(bool debug)
     }
 
     int wallCount = wallFront + wallRight + wallLeft;
+    TelnetStream.println("Wallcount: Front: " + String(wallFront) + " Right: " + String(wallRight) + " Left: " + String(wallLeft));
 
     if (wallCount == 3) // dead end
     {
@@ -476,14 +485,16 @@ void think_scout(bool debug)
 
 void move(char relativeDir, float correction, bool debug)
 {
-    std::array<uint16_t, 4> readings = tof_read(false);
+    x_current = x - 5;
+    y_current = y - 5;
+    // std::array<uint16_t, 4> readings = tof_read(false);
 
-    int leftDistance = readings[3];
-    int leftDiagonal = readings[2];
-    int rightDiagonal = readings[1];
-    int rightDistance = readings[0];
+    // int leftDistance = readings[3];
+    // int leftDiagonal = readings[2];
+    // int rightDiagonal = readings[1];
+    // int rightDistance = readings[0];
 
-    check_available_cell(leftDiagonal, rightDiagonal);
+    // check_available_cell(leftDiagonal, rightDiagonal);
 
     score[x][y]++;
     // solved[x][y] = 111; // Recording the moves made in the array
@@ -509,6 +520,8 @@ void move(char relativeDir, float correction, bool debug)
         facing = (facing + 2) % 4;
         rightCell = false;
         leftCell = false;
+        leftEncoderValue = 0;
+        rightEncoderValue = 0;
 
         if (debug)
         {
@@ -518,54 +531,69 @@ void move(char relativeDir, float correction, bool debug)
     }
     else if (relativeDir == 'r') // Turn right
     {
-        // encoder_turn_right();
-        // facing = (facing + 1) % 4;
+        encoder_turn_right();
+        facing = (facing + 1) % 4;
+        leftEncoderValue = 0;
+        rightEncoderValue = 0;
+        // if (rightCell)
+        // {
+        //     if (rightDiagonal <= availableSpaceThreshold) // Detect next edge
+        //     {
+        //         turnFlag = true;
+        //     }
 
-        if (rightCell)
-        {
-            if (rightDiagonal <= availableSpaceThreshold) // Detect next edge
-            {
-                encoder_turn_right();
-                facing = (facing + 1) % 4;
-                rightCell = false;
-            }
-        }
+        //     if (turnFlag)
+        //     {
+        //         encoder_turn_right();
+        //         facing = (facing + 1) % 4;
+        //         rightCell = false;
+        //     }
+        // }
     }
     else if (relativeDir == 'l') // Turn left
     {
-        // encoder_turn_left();
-        // facing = (facing + 3) % 4;
+        encoder_turn_left();
+        facing = (facing + 3) % 4;
+        leftEncoderValue = 0;
+        rightEncoderValue = 0;
 
-        if (leftCell)
-        {
-            if (leftDiagonal <= availableSpaceThreshold) // Detect next edge
-            {
-                encoder_turn_left();
-                facing = (facing + 3) % 4;
-                leftCell = false;
-            }
-        }
+        // if (leftCell)
+        // {
+        //     if (leftDiagonal <= availableSpaceThreshold) // Detect next edge
+        //     {
+        //         turnFlag = true;
+        //     }
+
+        //     if (turnFlag)
+        //     {
+        //         encoder_turn_left();
+        //         facing = (facing + 3) % 4;
+        //         leftCell = false;
+        //     }
+        // }
     }
 
     // Changed it to this, so while it hasnt moved a coordinate it keeps moving forward
     while (leftEncoderValue < cellDistance && rightEncoderValue < cellDistance)
     {
         std::array<uint16_t, 4> readings = tof_read(false);
+        delay(10);
+        readings = tof_read(false);
 
         int leftDistance = readings[3];
         int leftDiagonal = readings[2];
         int rightDiagonal = readings[1];
         int rightDistance = readings[0];
 
+        float correction = calculate_wall_pid(leftDistance, rightDistance, false);
+
+        forward_wall_pid(correction, baseSpeed); // Move forward
+
         // Reach end of wall
         if (leftDiagonal < frontDistanceThreshold && rightDiagonal < frontDistanceThreshold)
         {
             break;
         }
-
-        float correction = calculate_wall_pid(leftDistance, rightDistance, false);
-
-        forward_wall_pid(correction, baseSpeed); // Move forward
     }
 
     if (debug)
@@ -574,9 +602,6 @@ void move(char relativeDir, float correction, bool debug)
         TelnetStream.println("leftEncoderValue: " + String(leftEncoderValue) + " rightEncoderValue: " + String(rightEncoderValue));
         TelnetStream.println("");
     }
-
-    x_current = x;
-    y_current = y;
 
     // Adjust the coordinates
     if (facing == 1)
@@ -616,6 +641,7 @@ void move(char relativeDir, float correction, bool debug)
     // Reset encoder values after each cell detection
     leftEncoderValue = 0;
     rightEncoderValue = 0;
+    turnFlag = false;
 }
 
 void set_maze_map_scouting(int x1, int y_1, int x2, int y2, int x3, int y3, int x4, int y4)

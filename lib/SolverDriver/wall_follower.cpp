@@ -5,17 +5,26 @@
 #include <motor_function.h>
 
 // Front Distance Threshold
-const int frontDistanceThreshold = 130;
-const int availableSpaceThreshold = 175;
+const int frontDistanceThreshold = 150;
+const int availableSpaceThreshold = 140;
 const int wallSpeed = 130;
 
 bool rightWallCell = false;
 bool leftWallCell = false;
 bool wallCalibrationFlag = false;
+bool rightWallFollowing = true;
+bool leftWallFollowing = false;
+
+int turn_count = 0;
+int turn_count_list[18];
+bool wall_following = true;
+
+turn_count_list = [ 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1 ];
 
 void wall_follower(void)
 {
-    if (wallCalibrationFlag)
+
+if (wallCalibrationFlag)
     {
         std::array<uint16_t, 4> readings = tof_read(false);
 
@@ -28,19 +37,27 @@ void wall_follower(void)
 
         /* Wall Follower PID */
         float correction = calculate_wall_pid(leftDistance, rightDistance, false);
+    }
 
+    bool wall_following = turn_count[turn_count];
+
+    if (wall_following)
+    {
         /* Uncomment for right follower */
-        // if (rightWallCell)
-        // {
-        //     if (rightDiagonal < availableSpaceThreshold) // Detect next edge
-        //     {
-        //         brake();
-        //         delay(500);
-        //         encoder_turn_right();
-        //         delay(500);
-        //         rightWallCell = false;
-        //     }
-        // }
+        if (rightWallCell)
+        {
+            if (rightDiagonal < availableSpaceThreshold) // Detect next edge
+            {
+                brake();
+                delay(500);
+                encoder_turn_right();
+                delay(500);
+                rightWallCell = false;
+            }
+        }
+    }
+    else
+    {
 
         /* Left follower */
         if (leftWallCell)
@@ -54,70 +71,74 @@ void wall_follower(void)
                 leftWallCell = false;
             }
         }
+    }
 
-        /* Reach end of wall*/
-        if (leftDiagonal < frontDistanceThreshold && rightDiagonal < frontDistanceThreshold)
+    /* Reach end of wall*/
+    if (leftDiagonal < frontDistanceThreshold && rightDiagonal < frontDistanceThreshold)
+    {
+        lastWallError = 0;
+        wallIntegral = 0;
+        brake();
+        delay(250);
+
+        readings = tof_read(false);
+
+        int leftDistance = readings[3];
+        int rightDistance = readings[0];
+
+        // Right cell is available
+        if (rightDistance > availableSpaceThreshold)
         {
-            lastWallError = 0;
-            wallIntegral = 0;
-            brake();
-            delay(500);
+            TelnetStream.println("");
+            TelnetStream.println("Right cell available!");
+            encoder_turn_right();
+            leftWallCell = false;
+            rightWallCell = false;
+        }
 
-            readings = tof_read(false);
-
-            int leftDistance = readings[3];
-            int rightDistance = readings[0];
-
-            // Right cell is available
-            if (rightDistance > availableSpaceThreshold)
-            {
-                // TelnetStream.println("");
-                //  TelnetStream.println("Right cell available!");
-                encoder_turn_right();
-                leftWallCell = false;
-                rightWallCell = false;
-            }
-
-            // Left cell is available
-            else if (leftDistance > availableSpaceThreshold)
-            {
-                // TelnetStream.println("");
-                //  TelnetStream.println("Left cell available!");
-                encoder_turn_left();
-                leftWallCell = false;
-                rightWallCell = false;
-            }
-
-            else
-            {
-                // TelnetStream.println("");
-                //  TelnetStream.println("No cell available!");
-                encoder_turn_back();
-                leftWallCell = false;
-                rightWallCell = false;
-            }
-
-            delay(500);
+        // Left cell is available
+        else if (leftDistance > availableSpaceThreshold)
+        {
+            TelnetStream.println("");
+            TelnetStream.println("Left cell available!");
+            encoder_turn_left();
+            leftWallCell = false;
+            rightWallCell = false;
         }
 
         else
         {
-            forward_wall_pid(correction, wallSpeed);
+            TelnetStream.println("");
+            TelnetStream.println("No cell available!");
+            encoder_turn_back();
+            leftWallCell = false;
+            rightWallCell = false;
         }
-    }
-    else // Calibrate before start
-    {
-        calibrate_tof_front_threshold();
-        delay(100);
-        encoder_reverse();
-        delay(100);
-        encoder_turn_back();
-        delay(100);
-        encoder_reverse();
+
         delay(250);
-        
-        wallCalibrationFlag = true;
     }
+
+    else
+    {
+        forward_wall_pid(correction, wallSpeed);
+    }
+
+else // Calibrate before start
+{
+    calibrate_tof_front_threshold();
+    delay(100);
+    encoder_reverse();
+    delay(100);
+    encoder_turn_back();
+    delay(100);
+    encoder_reverse();
+    delay(250);
+
+    wallCalibrationFlag = true;
+}
+
+turn_count += 1;
+
 }
 
 void wall_check_available_cell(int leftDiagonal, int rightDiagonal)
